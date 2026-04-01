@@ -37,7 +37,8 @@ export function LogViewer({ logs, selectedDomain }: Props) {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3 }}
     >
-      <ScrollArea className="h-[400px] w-full rounded-lg border bg-card">
+      {/* Desktop: table view */}
+      <ScrollArea className="hidden sm:block h-[400px] w-full rounded-lg border bg-card">
         <div className="p-1">
           <table className="w-full text-xs">
             <thead>
@@ -111,6 +112,68 @@ export function LogViewer({ logs, selectedDomain }: Props) {
               </AnimatePresence>
             </tbody>
           </table>
+        </div>
+      </ScrollArea>
+
+      {/* Mobile: card-based view */}
+      <ScrollArea className="sm:hidden h-[400px] w-full rounded-lg border bg-card">
+        <div className="p-2 space-y-1.5">
+          <AnimatePresence mode="popLayout">
+            {filtered.length === 0 ? (
+              <motion.div
+                key="empty"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="py-8 text-center text-xs text-muted-foreground"
+              >
+                No logs yet. Run the pipeline to see activity.
+              </motion.div>
+            ) : (
+              filtered.map((log, i) => (
+                <motion.div
+                  key={log.id}
+                  variants={rowVariants}
+                  initial="initial"
+                  animate="animate"
+                  exit="exit"
+                  transition={{
+                    type: "spring" as const,
+                    stiffness: 400,
+                    damping: 30,
+                    delay: Math.min(i * 0.02, 0.3),
+                  }}
+                  className={cn(
+                    "rounded-lg border border-border/50 p-2.5 text-xs",
+                    log.status === "failed" && "bg-red-500/5 border-red-500/20",
+                    log.status === "success" && "bg-emerald-500/[0.03] border-emerald-500/20"
+                  )}
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <Badge variant={statusVariant[log.status] ?? "secondary"} className="text-[9px] shrink-0">
+                        {log.status}
+                      </Badge>
+                      <span className="font-medium truncate">{STAGE_LABELS[log.stage] ?? log.stage}</span>
+                    </div>
+                    <span className="text-[10px] font-mono text-muted-foreground shrink-0">
+                      {log.created_at ? new Date(log.created_at).toLocaleTimeString() : ""}
+                    </span>
+                  </div>
+                  <p className="mt-1 text-muted-foreground truncate">{log.domain}</p>
+                  {log.message && (
+                    <p className="mt-0.5 text-[11px] text-muted-foreground/80 line-clamp-2">
+                      {log.message}
+                    </p>
+                  )}
+                  {log.duration_ms != null && (
+                    <span className="mt-0.5 inline-block text-[10px] font-mono text-muted-foreground/60">
+                      {log.duration_ms}ms
+                    </span>
+                  )}
+                </motion.div>
+              ))
+            )}
+          </AnimatePresence>
         </div>
       </ScrollArea>
     </motion.div>

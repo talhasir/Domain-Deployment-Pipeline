@@ -70,18 +70,26 @@ const checkVariants = {
   visible: { pathLength: 1, opacity: 1, transition: { duration: 0.4, ease: "easeOut" } },
 };
 
+const SHORT_LABELS: Record<string, string> = {
+  assign_hosting: "Hosting",
+  configure_dns: "DNS",
+  deploy_site: "Deploy",
+  verify_live: "Verify",
+};
+
 export function StageIndicator({ currentStage, stageStatus }: Props) {
   return (
-    <div className="flex items-center">
+    <div className="flex items-center justify-between sm:justify-start">
       {STAGES.map((stage, i) => {
         const state = getStageState(stage, currentStage, stageStatus);
         const cfg = stateConfig[state];
         return (
           <div key={stage} className="flex items-center">
-            <div className="flex flex-col items-center gap-1">
+            <div className="flex flex-col items-center gap-0.5 sm:gap-1">
               <motion.div
                 className={cn(
-                  "flex h-7 w-7 items-center justify-center rounded-full border",
+                  "flex items-center justify-center rounded-full border",
+                  "h-6 w-6 sm:h-7 sm:w-7",
                   cfg.dot,
                   state === "active" && "animate-pulse-glow"
                 )}
@@ -92,32 +100,33 @@ export function StageIndicator({ currentStage, stageStatus }: Props) {
               >
                 {state === "done" && (
                   <motion.div initial={{ scale: 0, rotate: -90 }} animate={{ scale: 1, rotate: 0 }} transition={{ type: "spring", stiffness: 400, damping: 15, delay: 0.1 }}>
-                    <Check className="h-3 w-3" strokeWidth={3} />
+                    <Check className="h-2.5 w-2.5 sm:h-3 sm:w-3" strokeWidth={3} />
                   </motion.div>
                 )}
                 {state === "active" && (
-                  <Loader2 className="h-3 w-3 animate-spin" />
+                  <Loader2 className="h-2.5 w-2.5 sm:h-3 sm:w-3 animate-spin" />
                 )}
                 {state === "failed" && (
                   <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: "spring", stiffness: 500, damping: 15 }}>
-                    <X className="h-3 w-3" strokeWidth={3} />
+                    <X className="h-2.5 w-2.5 sm:h-3 sm:w-3" strokeWidth={3} />
                   </motion.div>
                 )}
                 {state === "upcoming" && (
-                  <Circle className="h-2 w-2" />
+                  <Circle className="h-1.5 w-1.5 sm:h-2 sm:w-2" />
                 )}
               </motion.div>
               <motion.span
-                className={cn("text-[10px] font-medium leading-none", cfg.label)}
+                className={cn("text-[9px] sm:text-[10px] font-medium leading-none text-center", cfg.label)}
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ delay: 0.2 }}
               >
-                {STAGE_LABELS[stage]}
+                <span className="sm:hidden">{SHORT_LABELS[stage]}</span>
+                <span className="hidden sm:inline">{STAGE_LABELS[stage]}</span>
               </motion.span>
             </div>
             {i < STAGES.length - 1 && (
-              <div className="relative mx-1.5 h-[2px] w-6 rounded-full bg-border overflow-hidden">
+              <div className="relative mx-1 sm:mx-1.5 h-[2px] w-3 sm:w-6 rounded-full bg-border overflow-hidden">
                 <motion.div
                   className={cn("absolute inset-0 rounded-full stage-connector-fill", cfg.connector)}
                   initial={{ scaleX: 0 }}

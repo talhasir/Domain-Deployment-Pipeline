@@ -99,7 +99,7 @@ const item = {
 export function SummaryCards({ summary }: Props) {
   return (
     <motion.div
-      className="grid grid-cols-2 gap-3 sm:grid-cols-5"
+      className="grid grid-cols-2 gap-2 sm:gap-3 sm:grid-cols-3 lg:grid-cols-5"
       variants={container}
       initial="hidden"
       animate="show"
@@ -123,7 +123,7 @@ export function SummaryCards({ summary }: Props) {
                       {c.label}
                     </span>
                   </div>
-                  <p className={cn("mt-2 text-3xl font-bold tabular-nums", c.color)}>
+                  <p className={cn("mt-1 text-2xl sm:mt-2 sm:text-3xl font-bold tabular-nums", c.color)}>
                     <AnimatedNumber value={summary[c.key]} />
                   </p>
                 </CardContent>

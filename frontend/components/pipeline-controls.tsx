@@ -60,15 +60,15 @@ export function PipelineControls({ onRun, onReset, isRunning }: Props) {
     >
       <Card>
         <CardContent className="p-4">
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="flex flex-1 items-center gap-2">
+          <div className="space-y-2 sm:space-y-0 sm:flex sm:flex-wrap sm:items-center sm:gap-2">
+            <div className="flex items-center gap-2">
               <input
                 type="text"
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && addDomain()}
                 placeholder="Add domain..."
-                className="h-9 flex-1 rounded-md border border-input bg-transparent px-3 text-sm
+                className="h-9 flex-1 min-w-0 rounded-md border border-input bg-transparent px-3 text-sm
                   placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring
                   transition-shadow duration-200"
               />
@@ -82,8 +82,9 @@ export function PipelineControls({ onRun, onReset, isRunning }: Props) {
               <motion.div
                 whileHover={{ scale: 1.03 }}
                 whileTap={{ scale: 0.97 }}
+                className="flex-1 sm:flex-none"
               >
-                <Button onClick={() => onRun(domains)} disabled={isRunning || domains.length === 0}>
+                <Button className="w-full sm:w-auto" onClick={() => onRun(domains)} disabled={isRunning || domains.length === 0}>
                   {isRunning ? (
                     <motion.div
                       animate={{ rotate: 360 }}

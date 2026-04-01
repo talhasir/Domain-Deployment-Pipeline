@@ -45,7 +45,7 @@ export default function DashboardPage() {
   }, [refreshAll]);
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+    <div className="mx-auto max-w-7xl px-3 py-4 sm:px-6 sm:py-8 lg:px-8">
       {/* Header */}
       <motion.div
         className="mb-8"
@@ -63,8 +63,8 @@ export default function DashboardPage() {
             <Activity className="h-5 w-5 text-primary" />
           </motion.div>
           <div>
-            <h1 className="text-2xl font-bold tracking-tight">Domain Deployment Pipeline</h1>
-            <p className="text-sm text-muted-foreground">
+            <h1 className="text-lg sm:text-2xl font-bold tracking-tight">Domain Deployment Pipeline</h1>
+            <p className="text-xs sm:text-sm text-muted-foreground">
               Multi-stage deployment with retry, idempotency &amp; real-time observability
             </p>
           </div>
