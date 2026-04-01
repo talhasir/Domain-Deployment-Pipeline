@@ -1,9 +1,15 @@
 "use client";
 
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback } from "react";
 import type { DomainPipeline, PipelineLog, Summary, SSEEvent } from "@/types";
-
-const API = "/api";
+import {
+  processDomain,
+  retryDomainPipeline,
+  resetAllData,
+  getDomains,
+  getLogs,
+  getSummary,
+} from "@/lib/pipeline-engine";
 
 export function usePipeline() {
   const [domains, setDomains] = useState<DomainPipeline[]>([]);
@@ -17,109 +23,86 @@ export function usePipeline() {
   });
   const [isRunning, setIsRunning] = useState(false);
   const [events, setEvents] = useState<SSEEvent[]>([]);
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const fetchDomains = useCallback(async () => {
-    const res = await fetch(`${API}/domains`);
-    if (res.ok) setDomains(await res.json());
-  }, []);
-
-  const fetchLogs = useCallback(async (domain?: string) => {
-    const url = domain ? `${API}/logs?domain=${domain}` : `${API}/logs`;
-    const res = await fetch(url);
-    if (res.ok) setLogs(await res.json());
-  }, []);
-
-  const fetchSummary = useCallback(async () => {
-    const res = await fetch(`${API}/summary`);
-    if (res.ok) setSummary(await res.json());
-  }, []);
-
-  const refreshAll = useCallback(async () => {
-    await Promise.all([fetchDomains(), fetchLogs(), fetchSummary()]);
-  }, [fetchDomains, fetchLogs, fetchSummary]);
-
-  const startPolling = useCallback(() => {
-    if (pollRef.current) return;
-    pollRef.current = setInterval(refreshAll, 1500);
-  }, [refreshAll]);
-
-  const stopPolling = useCallback(() => {
-    if (pollRef.current) {
-      clearInterval(pollRef.current);
-      pollRef.current = null;
-    }
+  const refreshAll = useCallback(() => {
+    setDomains(getDomains());
+    setLogs(getLogs());
+    setSummary(getSummary());
   }, []);
 
   const runBatch = useCallback(
     async (domainList: string[]) => {
       setIsRunning(true);
       setEvents([]);
-      startPolling();
 
-      try {
-        const res = await fetch(`${API}/run-batch`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ domains: domainList }),
-        });
+      for (const domain of domainList) {
+        setEvents((prev) => [...prev, { type: "start", domain }]);
 
-        const reader = res.body?.getReader();
-        const decoder = new TextDecoder();
+        try {
+          const result = await processDomain(domain, refreshAll);
 
-        if (reader) {
-          let buffer = "";
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-            buffer += decoder.decode(value, { stream: true });
-
-            const lines = buffer.split("\n");
-            buffer = lines.pop() || "";
-
-            for (const line of lines) {
-              if (line.startsWith("data: ")) {
-                try {
-                  const event: SSEEvent = JSON.parse(line.slice(6));
-                  setEvents((prev) => [...prev, event]);
-                  if (event.type === "result" || event.type === "error") {
-                    await refreshAll();
-                  }
-                } catch {
-                  // skip malformed events
-                }
-              }
-            }
-          }
+          setEvents((prev) => [
+            ...prev,
+            {
+              type: "result",
+              domain: result.domain,
+              status: result.status,
+              failed_at: result.failed_at,
+              message: result.message,
+            },
+          ]);
+        } catch (e) {
+          setEvents((prev) => [
+            ...prev,
+            { type: "error", domain, message: String(e) },
+          ]);
         }
-      } finally {
-        setIsRunning(false);
-        stopPolling();
-        await refreshAll();
+
+        refreshAll();
       }
+
+      setEvents((prev) => [...prev, { type: "done" }]);
+      setIsRunning(false);
+      refreshAll();
     },
-    [refreshAll, startPolling, stopPolling]
+    [refreshAll]
   );
 
-  const resetAll = useCallback(async () => {
-    await fetch(`${API}/reset`, { method: "POST" });
+  const resetAll = useCallback(() => {
+    resetAllData();
     setEvents([]);
-    await refreshAll();
+    refreshAll();
   }, [refreshAll]);
 
   const retryDomain = useCallback(
     async (domain: string) => {
       setIsRunning(true);
-      startPolling();
+      retryDomainPipeline(domain);
+      refreshAll();
+
       try {
-        await fetch(`${API}/retry/${domain}`, { method: "POST" });
-      } finally {
-        setIsRunning(false);
-        stopPolling();
-        await refreshAll();
+        const result = await processDomain(domain, refreshAll);
+        setEvents((prev) => [
+          ...prev,
+          {
+            type: "result",
+            domain: result.domain,
+            status: result.status,
+            failed_at: result.failed_at,
+            message: result.message,
+          },
+        ]);
+      } catch (e) {
+        setEvents((prev) => [
+          ...prev,
+          { type: "error", domain, message: String(e) },
+        ]);
       }
+
+      setIsRunning(false);
+      refreshAll();
     },
-    [refreshAll, startPolling, stopPolling]
+    [refreshAll]
   );
 
   return {
@@ -128,9 +111,6 @@ export function usePipeline() {
     summary,
     isRunning,
     events,
-    fetchDomains,
-    fetchLogs,
-    fetchSummary,
     refreshAll,
     runBatch,
     resetAll,
