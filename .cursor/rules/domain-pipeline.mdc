@@ -1,0 +1,45 @@
+---
+description: Domain Deployment Pipeline project conventions
+alwaysApply: true
+---
+
+# Domain Deployment Pipeline — Project Rules
+
+## Architecture
+
+- **Backend**: Python 3.11+ / FastAPI / SQLite (via SQLAlchemy)
+- **Frontend**: Next.js 15 / React 19 / TypeScript / Tailwind CSS / shadcn/ui
+- **Communication**: REST API with SSE (Server-Sent Events) for real-time updates
+
+## Backend Conventions (`backend/`)
+
+- Use Pydantic models for all request/response schemas
+- All database access goes through SQLAlchemy models in `models.py`
+- Pipeline logic lives in `pipeline.py`; stage executors in `stages.py`
+- Every stage execution must be logged to `pipeline_logs` table
+- Idempotency: never re-run a stage that already succeeded for a domain
+- Retry with exponential backoff + jitter; max 3 attempts per stage
+- Use Python `logging` module — no bare `print()` statements in library code
+
+## Frontend Conventions (`frontend/`)
+
+- Functional components only; hooks for shared logic in `hooks/`
+- All API types mirrored in `types/index.ts`
+- Use shadcn/ui primitives (Button, Card, Badge, ScrollArea) — no other component libraries
+- Tailwind utility classes for layout; shadcn CSS variables for theming
+- Poll or SSE for live pipeline status — no manual refresh needed
+- Next.js rewrites proxy `/api/*` to the FastAPI backend
+
+## Pipeline Stages (in order)
+
+1. `assign_hosting` — pick a hosting provider
+2. `configure_dns` — point DNS to the provider
+3. `deploy_site` — rebuild/deploy the site
+4. `verify_live` — HTTP health check (silent failure detector)
+
+## Key Design Principles
+
+- **Fault tolerance**: every stage can fail and be retried independently
+- **Idempotency**: re-running the pipeline skips already-completed stages
+- **Observability**: every state transition is logged with timestamp + context
+- **No silent failures**: `verify_live` does a real check even if prior stages reported success
