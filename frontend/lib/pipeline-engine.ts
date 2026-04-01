@@ -78,12 +78,44 @@ async function executeStage(
   return { success: true, message: "HTTP 200 confirmed — site is live", error: "" };
 }
 
-// ── In-memory store ──
+// ── Persistent store (localStorage) ──
 
-let nextPipelineId = 1;
-let nextLogId = 1;
-let pipelines: DomainPipeline[] = [];
-let logs: PipelineLog[] = [];
+const STORAGE_KEY = "pipeline_data";
+
+interface PersistedState {
+  nextPipelineId: number;
+  nextLogId: number;
+  pipelines: DomainPipeline[];
+  logs: PipelineLog[];
+}
+
+function loadState(): PersistedState {
+  if (typeof window === "undefined")
+    return { nextPipelineId: 1, nextLogId: 1, pipelines: [], logs: [] };
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) return JSON.parse(raw) as PersistedState;
+  } catch {
+    // corrupted data — start fresh
+  }
+  return { nextPipelineId: 1, nextLogId: 1, pipelines: [], logs: [] };
+}
+
+function saveState() {
+  if (typeof window === "undefined") return;
+  try {
+    const data: PersistedState = { nextPipelineId, nextLogId, pipelines, logs };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  } catch {
+    // storage full or unavailable — silent fail
+  }
+}
+
+const initial = loadState();
+let nextPipelineId = initial.nextPipelineId;
+let nextLogId = initial.nextLogId;
+let pipelines: DomainPipeline[] = initial.pipelines;
+let logs: PipelineLog[] = initial.logs;
 
 export type OnUpdate = () => void;
 
@@ -106,6 +138,7 @@ function addLog(
     created_at: new Date().toISOString(),
   };
   logs = [entry, ...logs];
+  saveState();
   return entry;
 }
 
@@ -144,7 +177,10 @@ async function runStageWithRetry(
       if (stage === "assign_hosting" && result.data?.provider) {
         newProvider = result.data.provider;
         const p = findPipeline(domain);
-        if (p) p.hosting_provider = newProvider;
+        if (p) {
+          p.hosting_provider = newProvider;
+          saveState();
+        }
       }
       addLog(domain, stage, "success", result.message, attempt, elapsed);
       onUpdate();
@@ -155,6 +191,7 @@ async function runStageWithRetry(
     if (p) {
       p.retry_count += 1;
       p.last_error = result.error;
+      saveState();
     }
 
     if (attempt < MAX_RETRIES) {
@@ -213,6 +250,7 @@ export async function processDomain(
       created_at: new Date().toISOString(),
     };
     pipelines = [...pipelines, pipeline];
+    saveState();
   }
 
   let provider = pipeline.hosting_provider ?? "unknown";
@@ -221,12 +259,14 @@ export async function processDomain(
     pipeline.current_stage = stage;
     pipeline.stage_status = "running";
     pipeline.last_attempted_at = new Date().toISOString();
+    saveState();
     onUpdate();
 
     const result = await runStageWithRetry(domain, stage, provider, onUpdate);
 
     if (!result.success) {
       pipeline.stage_status = "failed";
+      saveState();
       onUpdate();
       return {
         domain,
@@ -238,12 +278,14 @@ export async function processDomain(
 
     provider = result.provider;
     pipeline.stage_status = "success";
+    saveState();
     onUpdate();
   }
 
   pipeline.current_stage = "completed";
   pipeline.stage_status = "success";
   pipeline.completed_at = new Date().toISOString();
+  saveState();
   onUpdate();
 
   return {
@@ -258,6 +300,7 @@ export function retryDomainPipeline(domain: string) {
   if (p) {
     p.stage_status = "pending";
     p.last_error = null;
+    saveState();
   }
 }
 
@@ -266,6 +309,7 @@ export function resetAllData() {
   logs = [];
   nextPipelineId = 1;
   nextLogId = 1;
+  saveState();
 }
 
 export function getDomains(): DomainPipeline[] {
